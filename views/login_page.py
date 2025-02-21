@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLa
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap
 from controllers.auth_controller import AuthController
-
+from PyQt6.QtCore import QTimer
 class LoginPage(QWidget):
     def __init__(self):
         super().__init__()
@@ -92,17 +92,9 @@ class LoginPage(QWidget):
         result = self.auth_controller.login(username, password)
         
         if result['success']:
-            QMessageBox.information(
-                self,
-                "Thành công",
-                f"Chào mừng {result['user']['username']}!",
-                QMessageBox.StandardButton.Ok
-            )
-            # Sửa lại phần import này
-            from views.camera_page import CameraWindow
-            self.camera_window = CameraWindow()
-            self.camera_window.show()
-            self.close()
+            QTimer.singleShot(500, self.switch_to_camera_page)
+            # Chuyển sang trang camera
+         
         else:
             QMessageBox.warning(
                 self,
@@ -110,3 +102,8 @@ class LoginPage(QWidget):
                 result['message'],
                 QMessageBox.StandardButton.Ok
             )
+    def switch_to_camera_page(self):
+        from views.camera_page import CameraWindow
+        self.camera_window = CameraWindow()
+        self.camera_window.show()
+        self.close()
