@@ -128,22 +128,26 @@ class CameraWindow(QMainWindow):
                     self.list_of_cameras_state["Camera_1"] = "Maximized"
                     self.count_label_1.show()
                     self.count_label_2.hide()
+                    self.roi_count_label.show()
                 else:
                     self.QScrollArea_2.show()
                     self.list_of_cameras_state["Camera_1"] = "Normal"
                     self.count_label_1.show()
                     self.count_label_2.show()
+                    self.roi_count_label.show()
             elif source.objectName() == 'Camera_2':
                 if self.list_of_cameras_state["Camera_2"] == "Normal":
                     self.QScrollArea_1.hide()
                     self.list_of_cameras_state["Camera_2"] = "Maximized"
                     self.count_label_2.show()
                     self.count_label_1.hide()
+                    self.roi_count_label.hide()
                 else:
                     self.QScrollArea_1.show()
                     self.list_of_cameras_state["Camera_2"] = "Normal"
                     self.count_label_2.show()
                     self.count_label_1.show()
+                    self.roi_count_label.show()
             else:
                 return super(CameraWindow, self).eventFilter(source, event)
             return True
