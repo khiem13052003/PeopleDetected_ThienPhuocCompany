@@ -2,7 +2,7 @@ import sys
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap
-from controllers.auth_controller import AuthController
+from controllers.auth_controller import login
 from PyQt6.QtCore import QTimer
 class LoginPage(QWidget):
     def __init__(self):
@@ -10,7 +10,6 @@ class LoginPage(QWidget):
         self.setWindowTitle("Đăng nhập")
         self.setGeometry(100, 100, 400, 300)
         self.setup_ui()
-        self.auth_controller = AuthController()
 
     def setup_ui(self):
         layout = QVBoxLayout()
@@ -61,7 +60,7 @@ class LoginPage(QWidget):
                 background-color: #45a049;
             }
         """)
-        login_button.clicked.connect(self.login)
+        login_button.clicked.connect(lambda: login(self, self.username_input.text(), self.password_input.text()))
 
         # Tạo layout cho các widget
         layout.addSpacing(20)
@@ -71,39 +70,5 @@ class LoginPage(QWidget):
         layout.addSpacing(20)
         layout.addWidget(login_button)
         layout.addStretch()
-
         self.setLayout(layout)
-    
-    def login(self):
-        username = self.username_input.text()
-        password = self.password_input.text()
-
-        # Kiểm tra các trường input không được để trống
-        if not username or not password:
-            QMessageBox.warning(
-                self,
-                "Lỗi",
-                "Vui lòng nhập đầy đủ thông tin đăng nhập",
-                QMessageBox.StandardButton.Ok
-            )
-            return
-
-        # Thực hiện đăng nhập
-        result = self.auth_controller.login(username, password)
         
-        if result['success']:
-            QTimer.singleShot(500, self.switch_to_camera_page)
-            # Chuyển sang trang camera
-         
-        else:
-            QMessageBox.warning(
-                self,
-                "Lỗi",
-                result['message'],
-                QMessageBox.StandardButton.Ok
-            )
-    def switch_to_camera_page(self):
-        from views.camera_page import CameraWindow
-        self.camera_window = CameraWindow()
-        self.camera_window.show()
-        self.close()
