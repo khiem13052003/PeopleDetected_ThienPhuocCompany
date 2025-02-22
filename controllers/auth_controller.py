@@ -1,27 +1,13 @@
-class AuthController:
-    def __init__(self):
-        # Thông tin đăng nhập cố định
-        self.VALID_USERNAME = 'hoatuoitt'
-        self.VALID_PASSWORD = 'Thienphuoc2025'
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
 
-    def login(self, username, password):
-        try:
-            if username == self.VALID_USERNAME and password == self.VALID_PASSWORD:
-                return {
-                    'success': True,
-                    'user': {
-                        'username': username,
-                        'role': 'admin'
-                    }
-                }
-            else:
-                return {
-                    'success': False,
-                    'message': 'Tên đăng nhập hoặc mật khẩu không đúng'
-                }
-                
-        except Exception as e:
-            return {
-                'success': False,
-                'message': f'Lỗi đăng nhập: {str(e)}'
-            }
+def login(widget: QWidget,username, password):
+    # Kiểm tra các trường input không được để trống
+    if username == "hoatuoitt" and password == "Thienphuoc2025":
+        print("Đăng nhập thành công!")
+        from views.camera_page import CameraWindow
+        camera_window = CameraWindow()
+        camera_window.show()
+        widget.close()
+    else:
+        print ('Tên đăng nhập hoặc mật khẩu không đúng')
+
