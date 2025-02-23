@@ -1,16 +1,11 @@
 from PyQt6.QtWidgets import *
 from PyQt6.QtGui import *
 from PyQt6.QtCore import *
-from PyQt6 import QtCore
-import cv2
-from ultralytics import YOLO
-import sys
-import numpy as np
-from controllers.camera_controller import CaptureIpCameraFramesWorker
+from controllers.camera_controller import CaptureIpCameraFramesWorker, CameraEventHandler, CameraWorkerManager
 
 class CameraWindow(QMainWindow):
-    def __init__(self) -> None:
-        super(CameraWindow, self).__init__()
+    def __init__(self):
+        super().__init__()
         self.user = "hoatuoitt"
         self.pwd = "Thienphuoc2025"
         self.ip1 = "10.0.0.90"
@@ -20,12 +15,14 @@ class CameraWindow(QMainWindow):
         
         # Dictionary to keep the state of a camera
         self.list_of_cameras_state = {}
-
+        
+        # Khởi tạo camera worker manager
+        self.camera_manager = CameraWorkerManager(self.url_1, self.url_2)
+        
         # Setup UI elements
         self.setup_cameras()
         self.setup_labels()
-        self.__SetupUI()
-        
+        self.setup_ui()
         # Initialize workers
         self.setup_workers()
 
@@ -67,39 +64,42 @@ class CameraWindow(QMainWindow):
         self.roi_count_label.setStyleSheet("QLabel { color: blue; font-size: 30px; }")
 
     def setup_workers(self):
-        self.CaptureIpCameraFramesWorker_1 = CaptureIpCameraFramesWorker(self.url_1, camera_id=1)
-        self.CaptureIpCameraFramesWorker_1.ImageUpdated.connect(self.ShowCamera1)
-        self.CaptureIpCameraFramesWorker_1.CountUpdated.connect(self.UpdateCount1)
-        self.CaptureIpCameraFramesWorker_1.RoiCountUpdated.connect(self.UpdateRoiCount)
+        # Tạo dictionary chứa các callback functions
+        callbacks = {
+            'show_camera1': self.ShowCamera1,
+            'show_camera2': self.ShowCamera2,
+            'update_count1': self.UpdateCount1,
+            'update_count2': self.UpdateCount2,
+            'update_roi_count': self.UpdateRoiCount
+        }
+        # Setup workers thông qua manager
+        self.camera_manager.setup_workers(callbacks)
 
-        self.CaptureIpCameraFramesWorker_2 = CaptureIpCameraFramesWorker(self.url_2, camera_id=2)
-        self.CaptureIpCameraFramesWorker_2.ImageUpdated.connect(self.ShowCamera2)
-        self.CaptureIpCameraFramesWorker_2.CountUpdated.connect(self.UpdateCount2)
-
-        # Start camera threads
-        self.CaptureIpCameraFramesWorker_1.start()
-        self.CaptureIpCameraFramesWorker_2.start()
-
-    def __SetupUI(self) -> None:
-        grid_layout = QGridLayout()
-        grid_layout.setContentsMargins(0, 0, 0, 0)
+    def setup_ui(self):
+        self.setWindowTitle("IP Camera System")
         
-        grid_layout.addWidget(self.QScrollArea_1, 0, 0)
-        grid_layout.addWidget(self.count_label_1, 1, 0)
-        grid_layout.addWidget(self.roi_count_label, 2, 0)
-        grid_layout.addWidget(self.QScrollArea_2, 0, 1)
-        grid_layout.addWidget(self.count_label_2, 1, 1)
-
+        # Main widget and layout
         self.widget = QWidget(self)
-        self.widget.setLayout(grid_layout)
+        self.grid_layout = QGridLayout()
+        self.grid_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Add widgets to layout
+        self.grid_layout.addWidget(self.QScrollArea_1, 0, 0)
+        self.grid_layout.addWidget(self.count_label_1, 1, 0)
+        self.grid_layout.addWidget(self.roi_count_label, 2, 0)
+        self.grid_layout.addWidget(self.QScrollArea_2, 0, 1)
+        self.grid_layout.addWidget(self.count_label_2, 1, 1)
 
+        # Set layout
+        self.widget.setLayout(self.grid_layout)
         self.setCentralWidget(self.widget)
+        
+        # Window settings
         self.setMinimumSize(800, 600)
         self.showMaximized()
         self.setStyleSheet("QMainWindow {background: 'black';}")
-        self.setWindowIcon(QIcon(QPixmap("camera_2.png")))
-        self.setWindowTitle("IP Camera System")
 
+    # Thêm các method từ camera_controller.py
     @pyqtSlot(QImage)
     def ShowCamera1(self, frame: QImage) -> None:
         self.camera_1.setPixmap(QPixmap.fromImage(frame))
@@ -121,60 +121,20 @@ class CameraWindow(QMainWindow):
         self.roi_count_label.setText(f"Số người không làm: {count}")
 
     def eventFilter(self, source: QObject, event: QEvent) -> bool:
-        if event.type() == QEvent.Type.MouseButtonDblClick:
-            if source.objectName() == 'Camera_1':
-                if self.list_of_cameras_state["Camera_1"] == "Normal":
-                    self.QScrollArea_2.hide()
-                    self.list_of_cameras_state["Camera_1"] = "Maximized"
-                    self.count_label_1.show()
-                    self.count_label_2.hide()
-                    self.roi_count_label.show()
-                else:
-                    self.QScrollArea_2.show()
-                    self.list_of_cameras_state["Camera_1"] = "Normal"
-                    self.count_label_1.show()
-                    self.count_label_2.show()
-                    self.roi_count_label.show()
-            elif source.objectName() == 'Camera_2':
-                if self.list_of_cameras_state["Camera_2"] == "Normal":
-                    self.QScrollArea_1.hide()
-                    self.list_of_cameras_state["Camera_2"] = "Maximized"
-                    self.count_label_2.show()
-                    self.count_label_1.hide()
-                    self.roi_count_label.hide()
-                else:
-                    self.QScrollArea_1.show()
-                    self.list_of_cameras_state["Camera_2"] = "Normal"
-                    self.count_label_2.show()
-                    self.count_label_1.show()
-                    self.roi_count_label.show()
-            else:
-                return super(CameraWindow, self).eventFilter(source, event)
+        if CameraEventHandler.handle_double_click(self, source, event):
             return True
-        else:
-            return super(CameraWindow, self).eventFilter(source, event)
+        return super().eventFilter(source, event)
 
     def closeEvent(self, event) -> None:
-        if self.CaptureIpCameraFramesWorker_1.isRunning():
-            self.CaptureIpCameraFramesWorker_1.quit()
-        if self.CaptureIpCameraFramesWorker_2.isRunning():
-            self.CaptureIpCameraFramesWorker_2.quit()
-        event.accept()
+        try:
+            self.camera_manager.stop_workers()
+        except Exception as e:
+            print(f"Error closing threads: {e}")
+        finally:
+            event.accept()
 
 
-def main() -> None:
-    # Create a QApplication object. It manages the GUI application's control flow and main settings.
-    # It handles widget specific initialization, finalization.
-    # For any GUI application using Qt, there is precisely one QApplication object
-    app = QApplication(sys.argv)
-    # Create an instance of the class MainWindow.
-    window = CameraWindow()
-    # Show the window.
-    window.show()
-    # Start Qt event loop.
-    sys.exit(app.exec())
 
 
-if __name__ == '__main__':
-    main()
+
 

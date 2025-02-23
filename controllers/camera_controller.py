@@ -1,10 +1,14 @@
-from PyQt6.QtCore import QThread, pyqtSignal, Qt
+from PyQt6.QtCore import QThread, pyqtSignal, Qt, QObject, QEvent
 from PyQt6.QtGui import QImage
 import cv2
 from ultralytics import YOLO
 import numpy as np
-import os
+from PyQt6.QtWidgets import *
+from PyQt6.QtGui import *
+from PyQt6.QtCore import *
+import sys
 
+        
 class CaptureIpCameraFramesWorker(QThread):
     ImageUpdated = pyqtSignal(QImage)
     CountUpdated = pyqtSignal(int)
@@ -17,11 +21,10 @@ class CaptureIpCameraFramesWorker(QThread):
         self.__thread_active = True
         self.fps = 0
         self.__thread_pause = False
-        self.modelPath = os.path.join(os.getcwd(),r'PeopleDetected_ThienPhuocCompany\assets\model\bestyolo5.pt')
-        self.model = YOLO(self.modelPath)
+        self.model = YOLO(r'C:\Intern\PeopleDetected_ThienPhuocCompany\assets\model\bestyolo5.pt')
         self.roi_points = np.array([[300, 110], [900, 250], [900, 500], [130, 220]], np.int32)
         # Thêm các ngưỡng cho detection
-        self.conf_threshold = 0.1  # Ngưỡng confidence
+        self.conf_threshold = 0.05  # Ngưỡng confidence
         self.iou_threshold = 0.4  # Ngưỡng IoU cho NMS
 
     def point_in_roi(self, point):
@@ -94,11 +97,73 @@ class CaptureIpCameraFramesWorker(QThread):
         cap.release()
         self.quit()
 
-    def stop(self) -> None:
-        self.__thread_active = False
+class CameraEventHandler:
+    @staticmethod
+    def handle_double_click(window, source: QObject, event: QEvent) -> bool:
+        if event.type() == QEvent.Type.MouseButtonDblClick:
+            if source.objectName() == 'Camera_1':
+                if window.list_of_cameras_state["Camera_1"] == "Normal":
+                    window.QScrollArea_2.hide()
+                    window.list_of_cameras_state["Camera_1"] = "Maximized"
+                    window.count_label_1.show()
+                    window.count_label_2.hide()
+                    window.roi_count_label.show()
+                else:
+                    window.QScrollArea_2.show()
+                    window.list_of_cameras_state["Camera_1"] = "Normal"
+                    window.count_label_1.show()
+                    window.count_label_2.show()
+                    window.roi_count_label.show()
+            elif source.objectName() == 'Camera_2':
+                if window.list_of_cameras_state["Camera_2"] == "Normal":
+                    window.QScrollArea_1.hide()
+                    window.list_of_cameras_state["Camera_2"] = "Maximized"
+                    window.count_label_2.show()
+                    window.count_label_1.hide()
+                    window.roi_count_label.hide()
+                else:
+                    window.QScrollArea_1.show()
+                    window.list_of_cameras_state["Camera_2"] = "Normal"
+                    window.count_label_2.show()
+                    window.count_label_1.show()
+                    window.roi_count_label.show()
+            # else:
+            #     return False
+            #return True
+        # return False
 
-    def pause(self) -> None:
-        self.__thread_pause = True
+class CameraWorkerManager:
+    def __init__(self, url_1, url_2):
+        self.url_1 = url_1
+        self.url_2 = url_2
+        self.worker_1 = None
+        self.worker_2 = None
 
-    def unpause(self) -> None:
-        self.__thread_pause = False
+    def setup_workers(self, ui_callbacks):
+        """
+        Khởi tạo và cấu hình camera workers
+        ui_callbacks: dict chứa các callback functions từ UI
+        """
+        # Setup worker cho camera 1
+        self.worker_1 = CaptureIpCameraFramesWorker(self.url_1, camera_id=1)
+        self.worker_1.ImageUpdated.connect(ui_callbacks['show_camera1'])
+        self.worker_1.CountUpdated.connect(ui_callbacks['update_count1'])
+        self.worker_1.RoiCountUpdated.connect(ui_callbacks['update_roi_count'])
+
+        # Setup worker cho camera 2
+        self.worker_2 = CaptureIpCameraFramesWorker(self.url_2, camera_id=2)
+        self.worker_2.ImageUpdated.connect(ui_callbacks['show_camera2'])
+        self.worker_2.CountUpdated.connect(ui_callbacks['update_count2'])
+
+        # Khởi động threads
+        self.worker_1.start()
+        self.worker_2.start()
+
+    def stop_workers(self):
+        """Dừng các camera workers"""
+        if self.worker_1:
+            self.worker_1.quit()
+        if self.worker_2:
+            self.worker_2.quit()
+
+

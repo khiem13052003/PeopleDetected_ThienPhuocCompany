@@ -2,11 +2,13 @@ import sys
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap
-from controllers.auth_controller import login
+from controllers.auth_controller import AuthController
 from PyQt6.QtCore import QTimer
+
 class LoginPage(QWidget):
     def __init__(self):
         super().__init__()
+        self.auth_controller = AuthController()
         self.setWindowTitle("Đăng nhập")
         self.setGeometry(100, 100, 400, 300)
         self.setup_ui()
@@ -17,7 +19,7 @@ class LoginPage(QWidget):
         # Tạo layout cho logo   
         logo_layout = QHBoxLayout()
         logo_label = QLabel()
-        logo_pixmap = QPixmap("assets/logo.png")
+        logo_pixmap = QPixmap(r"C:\Intern\PeopleDetected_ThienPhuocCompany\assets\icons\desktop_icon.png")
         logo_label.setPixmap(logo_pixmap.scaled(150, 150, Qt.AspectRatioMode.KeepAspectRatio))
         logo_layout.addStretch()
         logo_layout.addWidget(logo_label)
@@ -60,7 +62,7 @@ class LoginPage(QWidget):
                 background-color: #45a049;
             }
         """)
-        login_button.clicked.connect(lambda: login(self, self.username_input.text(), self.password_input.text()))
+        login_button.clicked.connect(self.login)
 
         # Tạo layout cho các widget
         layout.addSpacing(20)
@@ -70,5 +72,40 @@ class LoginPage(QWidget):
         layout.addSpacing(20)
         layout.addWidget(login_button)
         layout.addStretch()
+
         self.setLayout(layout)
+    
+    def login(self):
+        username = self.username_input.text()
+        password = self.password_input.text()
+
+        # Kiểm tra các trường input không được để trống
+        if not username or not password:
+            QMessageBox.warning(
+                self,
+                "Lỗi",
+                "Vui lòng nhập đầy đủ thông tin đăng nhập",
+                QMessageBox.StandardButton.Ok
+            )
+            return
+
+        # Thực hiện đăng nhập
+        result = self.auth_controller.login(username, password)
+        
+        if result['success']:
+            QTimer.singleShot(1000, self.switch_to_camera)
+        else:
+            QMessageBox.warning(
+                self,
+                "Lỗi",
+                result['message'],
+                QMessageBox.StandardButton.Ok
+            )
+
+    def switch_to_camera(self):
+        # Chuyển sang trang camera
+        from views.camera_page import CameraWindow
+        self.camera_window = CameraWindow()
+        self.camera_window.show()
+        self.close()
         
