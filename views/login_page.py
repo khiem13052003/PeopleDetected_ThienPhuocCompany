@@ -4,6 +4,11 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap
 from controllers.auth_controller import login
 from PyQt6.QtCore import QTimer
+<<<<<<< Updated upstream
+=======
+import os
+
+>>>>>>> Stashed changes
 class LoginPage(QWidget):
     def __init__(self):
         super().__init__()
@@ -17,7 +22,11 @@ class LoginPage(QWidget):
         # Tạo layout cho logo   
         logo_layout = QHBoxLayout()
         logo_label = QLabel()
+<<<<<<< Updated upstream
         logo_pixmap = QPixmap("assets/logo.png")
+=======
+        logo_pixmap = QPixmap(os.path.join(os.getcwd(), r"PeopleDetected_ThienPhuocCompany\assets\icons\desktop_icon.png"))
+>>>>>>> Stashed changes
         logo_label.setPixmap(logo_pixmap.scaled(150, 150, Qt.AspectRatioMode.KeepAspectRatio))
         logo_layout.addStretch()
         logo_layout.addWidget(logo_label)

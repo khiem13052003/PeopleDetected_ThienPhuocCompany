@@ -3,6 +3,13 @@ from PyQt6.QtGui import QImage
 import cv2
 from ultralytics import YOLO
 import numpy as np
+<<<<<<< Updated upstream
+=======
+from PyQt6.QtWidgets import *
+from PyQt6.QtGui import *
+from PyQt6.QtCore import *
+import sys
+>>>>>>> Stashed changes
 import os
 
 class CaptureIpCameraFramesWorker(QThread):
@@ -17,7 +24,11 @@ class CaptureIpCameraFramesWorker(QThread):
         self.__thread_active = True
         self.fps = 0
         self.__thread_pause = False
+<<<<<<< Updated upstream
         self.modelPath = os.path.join(os.getcwd(),r'PeopleDetected_ThienPhuocCompany\assets\model\bestyolo5.pt')
+=======
+        self.modelPath = os.path.join(os.getcwd(), r"PeopleDetected_ThienPhuocCompany\assets\model\bestyolo5.pt")
+>>>>>>> Stashed changes
         self.model = YOLO(self.modelPath)
         self.roi_points = np.array([[300, 110], [900, 250], [900, 500], [130, 220]], np.int32)
         # Thêm các ngưỡng cho detection
