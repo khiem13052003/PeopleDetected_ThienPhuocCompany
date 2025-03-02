@@ -1,7 +1,7 @@
 import sys
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPixmap, QKeySequence, QShortcut
+from PyQt6.QtGui import QPixmap, QKeySequence, QShortcut, QIcon, QFont
 from controllers.auth_controller import AuthController
 from PyQt6.QtCore import QTimer
 import os
@@ -11,21 +11,21 @@ class LoginPage(QWidget):
         super().__init__()
         self.auth_controller = AuthController()
         self.setWindowTitle("Đăng nhập")
+        self.setWindowIcon(QIcon( r'C:\Intern\PeopleDetected_ThienPhuocCompany\assets\icons\desktop_icon.png'))
         self.setGeometry(100, 100, 400, 300)
         self.setup_ui()
-
+    
     def setup_ui(self):
         layout = QVBoxLayout()
 
         # Tạo layout cho logo   
         logo_layout = QHBoxLayout()
         logo_label = QLabel()
-        logo_pixmap = QPixmap(os.path.join(os.getcwd(),r'PeopleDetected_ThienPhuocCompany\assets\icons\desktop_icon.png'))
+        logo_pixmap = QPixmap()#r'C:\Intern\PeopleDetected_ThienPhuocCompany\assets\icons\desktop_icon.png')
         logo_label.setPixmap(logo_pixmap.scaled(150, 150, Qt.AspectRatioMode.KeepAspectRatio))
         logo_layout.addStretch()
         logo_layout.addWidget(logo_label)
         logo_layout.addStretch()
-
         # Tạo layout cho form đăng nhập
         form_layout = QVBoxLayout()
         
@@ -84,18 +84,7 @@ class LoginPage(QWidget):
         username = self.username_input.text()
         password = self.password_input.text()
 
-        # Kiểm tra các trường input không được để trống
-        if not username or not password:
-            QMessageBox.warning(
-                self,
-                "Lỗi",
-                "Vui lòng nhập đầy đủ thông tin đăng nhập",
-                QMessageBox.StandardButton.Ok
-            )
-            return
-
-        # Thực hiện đăng nhập
-        result = self.auth_controller.login(username, password)
+        result = self.auth_controller.handle_login(username, password)
         
         if result['success']:
             QTimer.singleShot(1000, self.switch_to_camera)
