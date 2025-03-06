@@ -10,6 +10,7 @@ import sys
 import os
 import matplotlib.pyplot as plt
 import csv
+from datetime import datetime
 class CaptureIpCameraFramesWorker(QThread):
     ImageUpdated = pyqtSignal(QImage)
     CountUpdated = pyqtSignal(int)
@@ -18,7 +19,6 @@ class CaptureIpCameraFramesWorker(QThread):
 
     def __init__(self, url, camera_id) -> None:
         super(CaptureIpCameraFramesWorker, self).__init__()
-        self.total_count = 0
         self.url = url
         self.camera_id = camera_id
         self.__thread_active = True
@@ -78,9 +78,9 @@ class CaptureIpCameraFramesWorker(QThread):
 
                         # Cập nhật số lượng người (sau khi đã lọc)
                         person_count = len(filtered_boxes)
-                        self.total_count += person_count
+                        
                         self.CountUpdated.emit(person_count)
-                        self.TotalCountUpdated.emit(self.total_count)
+                        # self.TotalCountUpdated.emit(self.total_count)
                         
                         roi_count = 0
                         
@@ -126,6 +126,8 @@ class CameraController:
         self.timer_end = None
         self.target_count = None
         self.total_count = 0
+        self.current_period_count = 0  # Thêm biến đếm cho period hiện tại
+        self.log_data = []
         self.setup_datetime_timer()
         
     def setup_datetime_timer(self):
@@ -177,9 +179,12 @@ class CameraController:
         
         # Khởi động timer với khoảng thời gian đã chỉ định
         self.count_timer.start(gap_seconds * 1000)
-        self.log_data=[]
+        self.log_data = []
+        
+        # Reset current_period_count khi bắt đầu period mới
+        self.current_period_count = 0
 
-    def check_count(self, timer_widget, now=None):
+    def check_count(self, timer_widget):
         current_time = QDateTime.currentDateTime()
         
         # Kiểm tra xem có còn trong khoảng thời gian giám sát không
@@ -191,18 +196,21 @@ class CameraController:
         
         # Lấy số lượng người hiện tại trong ROI của Camera 2
         roi_count = int(self.window.roi_count_label_2.text().split(": ")[1].split()[0])
+        total_count= int(self.window.count_label_2.text().split(": ")[1].split()[0])
+        # Cập nhật total_count cho period hiện tại
+        self.current_period_count = total_count
         
         # Định dạng và thêm kết quả
         time_str = current_time.toString("dd/MM/yyyy hh:mm:ss")
-        time_data=current_time.toString("hh:mm:ss")
+        time_data = current_time.toString("hh:mm:ss")
         result_str = f"Thời gian: {time_str} - Số người: {roi_count}\n"
-        total_count = self.total_count
-        # Lưu dữ liệu với thời gian hiện tại thay vì None
-        self.log_data.append([time_data, roi_count, total_count])
         
-        # Thêm cảnh báo nếu số người vượt quá giới hạn
+        # Lưu dữ liệu với thời gian hiện tại và current_period_count
+        self.log_data.append([time_data, roi_count, self.current_period_count])
+        
+        # Thêm cảnh báo nếu số người không đủ
         if roi_count < self.target_count:
-            result_str += f"⚠️ khong du số người cho phép ({self.target_count})!\n"
+            result_str += f"⚠️ không đủ số người cho phép ({self.target_count})!\n"
         
         # Chèn vào đầu ô văn bản
         current_text = timer_widget.result_text.toPlainText()
@@ -220,8 +228,11 @@ class CameraController:
         timer_widget.number_people_edit.clear()
         timer_widget.result_text.clear()
         timer_widget.submit_button.setText("xác nhận")
-        self.log_data=[]    
-   
+        self.log_data = []
+        
+        # Reset current_period_count
+        self.current_period_count = 0
+
     def cleanup(self):
         if self.datetime_timer.isActive():
             self.datetime_timer.stop()
@@ -234,32 +245,50 @@ class CameraController:
         if folder_path:
             timer_widget.save_path_edit.setText(folder_path)
     
+
     def save_csv(self, timer_widget):
         """Lưu dữ liệu vào file CSV"""
         save_path = timer_widget.save_path_edit.text()
-        save_data = self.log_data
         
-        if not timer_widget.result_text.toPlainText():
-            timer_widget.result_text.setText("không có dữ liệu nào")
-            return
+        # Kiểm tra điều kiện đầu vào
         if not save_path:
             timer_widget.result_text.setText("không có đường dẫn lưu")
             return
         if not os.path.exists(save_path):
             timer_widget.result_text.setText(" ❌ Đường dẫn không tồn tại")
             return
-        
-        file_name = os.path.join(save_path, QDateTime.currentDateTime().toString("yyyy-MM-dd") + ".csv")
-        with open(file_name, "w", newline="", encoding="utf-8") as file:
-            writer = csv.writer(file)
-            writer.writerow(["Time", "People in area", "Total number"])
-            for data in save_data:
-                if all(item is not None for item in data):  # Kiểm tra không có giá trị None
-                    writer.writerow([str(item) for item in data])  # Chuyển tất cả thành string
-        
-        self.log_data = []  # Reset log data sau khi lưu
-        timer_widget.result_text.setText(" ✅ Lưu file thành công")
-    
+        if not self.log_data:
+            timer_widget.result_text.setText("không có dữ liệu nào")
+            return
+
+        # Tạo tên file với định dạng ngày tháng
+        file_name = QDateTime.currentDateTime().toString("yyyy-MM-dd") + ".csv"
+        file_path = os.path.join(save_path, file_name)
+
+        # Kiểm tra file tồn tại và xác nhận ghi đè
+        if os.path.exists(file_path):
+            result = timer_widget.msg_box.exec()
+            if result != QMessageBox.StandardButton.Ok:
+                return
+
+        # Hàm helper để ghi file CSV
+        def write_csv_file():
+            with open(file_path, "w", newline="", encoding="utf-8") as file:
+                writer = csv.writer(file)
+                writer.writerow(["Time", "People in area", "Total number"])
+                for data in self.log_data:
+                    if all(item is not None for item in data):
+                        writer.writerow([str(item) for item in data])
+
+        try:
+            write_csv_file()
+            # Reset dữ liệu và UI sau khi lưu thành công
+            self.log_data = []
+            self.handle_delete_info(timer_widget)
+            timer_widget.result_text.setText(" ✅ Lưu file thành công")
+        except Exception as e:
+            timer_widget.result_text.setText(f" ❌ Lỗi khi lưu file: {str(e)}")
+
     def handle_double_click(self, source: QObject) -> bool:
         if source.objectName() == 'Camera_1':
             if self.window.list_of_cameras_state["Camera_1"] == "Normal":
@@ -336,7 +365,7 @@ class CameraWorkerManager:
         self.worker_2.start()
 
     def stop_workers(self):
-        """Dừng các camera workers"""
+        #Dừng các camera workers
         if self.worker_1:
             self.worker_1.quit()
         if self.worker_2:

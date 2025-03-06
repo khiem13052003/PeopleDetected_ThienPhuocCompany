@@ -70,7 +70,16 @@ class TimerWidget(QWidget):
         self.save_csv_button.setObjectName('saveCSVButton')
         self.save_csv_button.setStyleSheet("QPushButton#saveCSVButton{color: black; font-size: 15px;}")
         self.save_csv_button.clicked.connect(self.save_csv)
-        
+
+        self.msg_box= QMessageBox()
+        self.msg_box.setWindowTitle("Cảnh báo")
+        self.msg_box.setText("File hôm nay đã được lưu")
+        self.msg_box.setInformativeText("Bạn có muốn lưu lại file mới ?")
+        self.msg_box.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
+        self.msg_box.button(QMessageBox.StandardButton.Ok).setText("Tiếp tục")
+        self.msg_box.button(QMessageBox.StandardButton.Cancel).setText("Hủy")
+
+       
         path_layout=QHBoxLayout()
         path_layout.addWidget(self.save_path_edit)
         path_layout.addWidget(self.browse_button)
@@ -97,6 +106,32 @@ class TimerWidget(QWidget):
         # set window flags
         self.setWindowFlags(Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        
+        self.msg_box.setStyleSheet("""
+            QMessageBox {
+                background-color: #2b2b2b;
+                color: white;
+                min-width: 600px;
+                min-height: 200px;
+            }
+            QMessageBox QLabel {
+                color: white;
+                font-size: 14px;
+                padding: 10px;
+            }
+            QPushButton {
+                background-color: #0d6efd;
+                color: white;
+                padding: 6px 20px;
+                border: none;
+                border-radius: 4px;
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                background-color: #0b5ed7;
+            }
+        """)
+        
         
         #set stylesheet for the widget
         self.setStyleSheet("""
@@ -191,6 +226,7 @@ class TimerWidget(QWidget):
         self.submit_button.clicked.connect(self.submit_info)
         self.delete_button.clicked.connect(self.delete_info)
 
+    
     def submit_info(self):
         self.camera_controller.handle_submit_info(self)
 
@@ -202,6 +238,7 @@ class TimerWidget(QWidget):
     
     def save_csv(self):
         self.camera_controller.save_csv(self)
+    
     
 class CameraWindow(QMainWindow):
     def __init__(self) -> None:
