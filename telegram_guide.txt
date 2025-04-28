@@ -1,0 +1,9 @@
+Cách lấy Token & ID Telegram:
+
+1. Mở Telegram và tìm bot: @BotFather
+2. Gõ /newbot và làm theo hướng dẫn để lấy Token.
+3. Để lấy Chat ID, tìm bot: @userinfobot, gõ /start.
+4. Nhập tên Bot của bạn lên thanh tìm kiếm, chọn và nhấn /start 
+5. Bot sẽ gửi lại Chat ID của bạn.
+
+Lưu lại Token và ID để sử dụng!

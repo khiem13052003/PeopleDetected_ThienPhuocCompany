@@ -6,24 +6,27 @@ import cv2
 from ultralytics import YOLO
 import sys
 import numpy as np
-from controllers.camera_controller import CaptureIpCameraFramesWorker, CameraController
+from controllers.camera_controller import CaptureIpCameraFramesWorker, CameraController, CameraWorkerManager
 from PyQt6.QtCore import QDateTime
+from .tele_page import TelegramSettingsGUI
+from .Roi_page import ROIDialog
 
 class TimerWidget(QWidget):
-    def __init__(self, camera_controller, parent=None):
+    def __init__(self, camera_controller, camera_IP, parent=None):
         super(TimerWidget, self).__init__(parent)
         self.camera_controller = camera_controller
+        self.camera_IP = camera_IP
         self.setFixedSize(250, 700)
+        self.setting_tele_window = None
+        self.capture_ip_cam = None  # Sẽ được set sau khi khởi tạo worker
         #create layout
         layout= QVBoxLayout()
         layout.setContentsMargins(10, 10, 10, 10)
         
-        
-       
         #create widgets
         self.start_label= QLabel("Thời gian bắt đầu:")
         self.start_label.setStyleSheet("QLabel{color: white; font-size: 15px;}")
-
+        
         self.start_time_edit= QDateTimeEdit()
         self.start_time_edit.setDateTime(QDateTime.currentDateTime())
 
@@ -45,9 +48,20 @@ class TimerWidget(QWidget):
         self.number_people_edit.setPlaceholderText("Nhập số người")
         self.number_people_edit.setValidator(QIntValidator())
 
+        self.ROI_edit=QPushButton("Chỉnh vùng quan tâm")
+        self.ROI_edit.setObjectName("RoiButton")
+        self.ROI_edit.setStyleSheet("QPushButton#RoiButton{color: white; font-size: 15px;}")
+        self.ROI_edit.clicked.connect(self.open_roi_dialog)
+        
+        self.tele_edit=QPushButton("Edit Tele")
+        self.tele_edit.setObjectName('teleButton')
+        self.tele_edit.setStyleSheet("QPushButton#teleButton{color: white; font-size: 15px;}")
+        self.tele_edit.clicked.connect(self.open_telegram_settings)
+       
         self.delete_button= QPushButton("Hủy thông tin")
         self.delete_button.setObjectName("deleteButton")
         self.delete_button.setStyleSheet("QPushButton#deleteButton{color: white; font-size: 15px;}")
+        self.delete_button.clicked.connect(self.delete_info)
 
         self.submit_button= QPushButton("Xác nhận")
         self.submit_button.setStyleSheet("QPushButton{color: white; font-size: 15px;}")
@@ -60,7 +74,7 @@ class TimerWidget(QWidget):
         self.save_path_edit= QLineEdit()
         self.save_path_edit.setObjectName('savePathEdit')
         self.save_path_edit.setPlaceholderText("Nhập đường dẫn lưu file")
- 
+    
         self.browse_button=QPushButton("📂")
         self.browse_button.setObjectName('browseButton')
         self.browse_button.setStyleSheet("QPushButton#browseButton{font-size: 15px; background-color: #FFFFFF;}")
@@ -93,6 +107,8 @@ class TimerWidget(QWidget):
         layout.addWidget(self.gap_time_edit)
         layout.addWidget(self.number_people_label)
         layout.addWidget(self.number_people_edit)
+        layout.addWidget(self.tele_edit)
+        layout.addWidget(self.ROI_edit)
         layout.addWidget(self.submit_button)
         layout.addWidget(self.delete_button)
         layout.addWidget(self.result_text)
@@ -238,16 +254,26 @@ class TimerWidget(QWidget):
     
     def save_csv(self):
         self.camera_controller.save_csv(self)
+
+    # Trong class TimerWidget:
+    def open_roi_dialog(self):
+        if self.capture_ip_cam:
+            self.capture_ip_cam.open_roi_dialog()
+        else:
+            print("Camera worker chưa được khởi tạo")
     
-    
+
+    def open_telegram_settings(self):
+        if self.setting_tele_window is None or not self.setting_tele_window.isVisible():
+            self.setting_tele_window = TelegramSettingsGUI()
+            self.setting_tele_window.show()
+
 class CameraWindow(QMainWindow):
     def __init__(self) -> None:
         super(CameraWindow, self).__init__()
         self.user = "hoatuoitt"
         self.pwd = "Thienphuoc2025"
-        self.ip1 = "10.0.0.90"
         self.ip2 = "10.0.0.91"
-        self.url_1 = f"rtsp://{self.user}:{self.pwd}@{self.ip1}:554/Streaming/Channels/102"
         self.url_2 = f"rtsp://{self.user}:{self.pwd}@{self.ip2}:554/Streaming/Channels/102"
         
         # Dictionary to keep the state of a camera
@@ -255,13 +281,14 @@ class CameraWindow(QMainWindow):
 
         # Khởi tạo camera_controller trước
         self.camera_controller = CameraController(self)
+        self.camera_IP = CaptureIpCameraFramesWorker(self, main_window=self)
         
         # Setup UI elements
         self.setup_cameras()
         self.setup_labels()
         
-        # Truyền camera_controller vào TimerWidget
-        self.timer_widget = TimerWidget(self.camera_controller, self)
+        # Truyền camera_controller và camera_IP vào TimerWidget
+        self.timer_widget = TimerWidget(self.camera_controller, self.camera_IP, self)
         
         self.__SetupUI()
        
@@ -270,19 +297,6 @@ class CameraWindow(QMainWindow):
     
 
     def setup_cameras(self):
-        # Camera 1
-        self.camera_1 = QLabel()
-        self.camera_1.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
-        self.camera_1.setScaledContents(True)
-        self.camera_1.installEventFilter(self)
-        self.camera_1.setObjectName("Camera_1")
-        self.list_of_cameras_state["Camera_1"] = "Normal"
-
-        self.QScrollArea_1 = QScrollArea()
-        self.QScrollArea_1.setBackgroundRole(QPalette.ColorRole.Dark)
-        self.QScrollArea_1.setWidgetResizable(True)
-        self.QScrollArea_1.setWidget(self.camera_1)
-
         # Camera 2
         self.camera_2 = QLabel()
         self.camera_2.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
@@ -297,14 +311,8 @@ class CameraWindow(QMainWindow):
         self.QScrollArea_2.setWidget(self.camera_2)
 
     def setup_labels(self):
-        self.count_label_1 = QLabel("Camera 1: 0 người")
-        self.count_label_1.setStyleSheet("QLabel { color: red; font-size: 30px; }")
-        
         self.count_label_2 = QLabel("Camera 2: 0 người")
         self.count_label_2.setStyleSheet("QLabel { color: red; font-size: 30px; }")
-        
-        self.roi_count_label_1 = QLabel("ROI Camera 1: 0 người")
-        self.roi_count_label_1.setStyleSheet("QLabel { color: blue; font-size: 30px; }")
         
         self.roi_count_label_2 = QLabel("ROI Camera 2: 0 người")
         self.roi_count_label_2.setStyleSheet("QLabel { color: blue; font-size: 30px; }")
@@ -314,29 +322,21 @@ class CameraWindow(QMainWindow):
         
     
     def setup_workers(self):
-        self.CaptureIpCameraFramesWorker_1 = CaptureIpCameraFramesWorker(self.url_1, camera_id=1)
-        self.CaptureIpCameraFramesWorker_1.ImageUpdated.connect(self.ShowCamera1)
-        self.CaptureIpCameraFramesWorker_1.CountUpdated.connect(self.UpdateCount1)
-        self.CaptureIpCameraFramesWorker_1.RoiCountUpdated.connect(self.UpdateRoiCount1)
-
-        self.CaptureIpCameraFramesWorker_2 = CaptureIpCameraFramesWorker(self.url_2, camera_id=2)
+        self.CaptureIpCameraFramesWorker_2 = CaptureIpCameraFramesWorker(self.url_2,main_window=self)
         self.CaptureIpCameraFramesWorker_2.ImageUpdated.connect(self.ShowCamera2)
         self.CaptureIpCameraFramesWorker_2.CountUpdated.connect(self.UpdateCount2)
         self.CaptureIpCameraFramesWorker_2.RoiCountUpdated.connect(self.UpdateRoiCount2)
+        
+        # Gán worker cho timer_widget
+        self.timer_widget.capture_ip_cam = self.CaptureIpCameraFramesWorker_2
 
         # Start camera threads
-        
-        self.CaptureIpCameraFramesWorker_1.start()
         self.CaptureIpCameraFramesWorker_2.start()
 
     def __SetupUI(self) -> None:
         
         grid_layout = QGridLayout()
         grid_layout.setContentsMargins(0, 0, 0, 0)
-        
-        grid_layout.addWidget(self.QScrollArea_1, 0, 0)
-        grid_layout.addWidget(self.count_label_1, 1, 0)
-        grid_layout.addWidget(self.roi_count_label_1, 2, 0)
         grid_layout.addWidget(self.QScrollArea_2, 0, 1)
         grid_layout.addWidget(self.count_label_2, 1, 1) 
         grid_layout.addWidget(self.roi_count_label_2, 2, 1)
@@ -353,25 +353,14 @@ class CameraWindow(QMainWindow):
         self.setWindowIcon(QIcon(QPixmap("camera_2.png")))
         self.setWindowTitle("IP Camera System")
 
-    @pyqtSlot(QImage)
-    def ShowCamera1(self, frame: QImage) -> None:
-        self.camera_1.setPixmap(QPixmap.fromImage(frame))
 
     @pyqtSlot(QImage)
     def ShowCamera2(self, frame: QImage) -> None:
         self.camera_2.setPixmap(QPixmap.fromImage(frame))
 
     @pyqtSlot(int)
-    def UpdateCount1(self, count: int) -> None:
-        self.count_label_1.setText(f"Camera 1: {count} người")
-
-    @pyqtSlot(int)
     def UpdateCount2(self, count: int) -> None:
         self.count_label_2.setText(f"Camera 2: {count} người")
-
-    @pyqtSlot(int)
-    def UpdateRoiCount1(self, count: int) -> None:
-        self.roi_count_label_1.setText(f"ROI Camera 1: {count} người")
 
     @pyqtSlot(int)
     def UpdateRoiCount2(self, count: int) -> None:
@@ -390,26 +379,24 @@ class CameraWindow(QMainWindow):
     def closeEvent(self, event) -> None:
         self.timer_widget.close()
         self.camera_controller.cleanup()
-        if self.CaptureIpCameraFramesWorker_1.isRunning():
-            self.CaptureIpCameraFramesWorker_1.quit()
         if self.CaptureIpCameraFramesWorker_2.isRunning():
             self.CaptureIpCameraFramesWorker_2.quit()
         event.accept()
 
 
-# def main() -> None:
-#     # Create a QApplication object. It manages the GUI application's control flow and main settings.
-#     # It handles widget specific initialization, finalization.
-#     # For any GUI application using Qt, there is precisely one QApplication object
-#     app = QApplication(sys.argv)
-#     # Create an instance of the class MainWindow.
-#     window = CameraWindow()
-#     # Show the window.
-#     window.show()
-#     # Start Qt event loop.
-#     sys.exit(app.exec())
+    # def main() -> None:
+    #     # Create a QApplication object. It manages the GUI application's control flow and main settings.
+    #     # It handles widget specific initialization, finalization.
+    #     # For any GUI application using Qt, there is precisely one QApplication object
+    #     app = QApplication(sys.argv)
+    #     # Create an instance of the class MainWindow.
+    #     window = CameraWindow()
+    #     # Show the window.
+    #     window.show()
+    #     # Start Qt event loop.
+    #     sys.exit(app.exec())
 
 
-# if __name__ == '__main__':
-#     main()
+    # if __name__ == '__main__':
+    #     main()
 

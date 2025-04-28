@@ -110,7 +110,7 @@ class CameraApp:
             return
         
         # Load model YOLO sau khi kết nối camera thành công
-        self.model = YOLO(r'D:/DaiHoc/Intern/PeopleDetected/best.pt')
+        self.model = YOLO(r'C:\Intern\PeopleDetected_ThienPhuocCompany\assets\model\bestyolo5_10k.pt')
         
         self.create_video_window()
         self.is_running = True

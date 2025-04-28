@@ -5,14 +5,13 @@ import sys
 def main():
     # Khởi tạo ứng dụng
     app = QApplication(sys.argv)
-    
-    # Tạo và hiển thị cửa sổ đăng nhập
+    # Tạo và hiển thị cửa sổ đăng nhập  
     login_window = LoginPage()
     login_window.show()
-    
-    # Chạy ứng dụng
+        
+    # Chạy ứng dụng 
     sys.exit(app.exec())
 
-if __name__ == "__main__":
+if __name__ == "__main__":  
     main()
 

@@ -21,7 +21,7 @@ class LoginPage(QWidget):
         # Tạo layout cho logo   
         logo_layout = QHBoxLayout()
         logo_label = QLabel()
-        logo_pixmap = QPixmap()#r'C:\Intern\PeopleDetected_ThienPhuocCompany\assets\icons\desktop_icon.png')
+        logo_pixmap = QPixmap(r"C:\Intern\PeopleDetected_ThienPhuocCompany\assets\icons\logo_TP.png")
         logo_label.setPixmap(logo_pixmap.scaled(150, 150, Qt.AspectRatioMode.KeepAspectRatio))
         logo_layout.addStretch()
         logo_layout.addWidget(logo_label)
